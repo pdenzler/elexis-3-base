@@ -55,22 +55,48 @@ public class QRBillDataBuilderTest {
 		assertEquals(31, parts.length);
 
 		assertEquals("CH4431999123000889012", parts[3]);
-		assertEquals("Grosse Marktgasse 28", parts[6]);
-		assertEquals("9400 Rorschach", parts[7]);
-		assertEquals("", parts[8]);
-		assertEquals("", parts[9]);
+		assertEquals("Grosse Marktgasse", parts[6]);
+		assertEquals("28", parts[7]);
+		assertEquals("9400", parts[8]);
+		assertEquals("Rorschach", parts[9]);
 		assertEquals("CH", parts[10]);
 
 		assertEquals("12.00", parts[18]);
 		assertEquals("CHF", parts[19]);
 
 		assertEquals("DbtrOrg", parts[21]);
-		assertEquals("Rue du Lac 1268", parts[22]);
+		assertEquals("Rue du Lac", parts[22]);
+		assertEquals("1268", parts[23]);
 		assertEquals("CH", parts[26]);
 
 		assertEquals("QRR", parts[27]);
 		assertEquals("977598000000002414281387835", parts[28]);
 
 		assertEquals("Ähnliche Rechnung #23 oder -23 über +23 mit <23", parts[29]);
+	}
+
+	@Test
+	public void buildStructuredAddress() throws QRBillDataException {
+		IContact cdtr = new PersonBuilder(CoreModelServiceHolder.get(), "CdtrFirstname", "CdtrLastname",
+				LocalDate.of(2000, 2, 2), Gender.FEMALE).mandator().build();
+		cdtr.setExtInfo("IBAN", "CH4431999123000889012");
+		cdtr.setStreet("Postfach");
+		cdtr.setZip("9400");
+		cdtr.setCity("Rorschach");
+		cdtr.setCountry(Country.CH);
+
+		QRBillDataBuilder builder = new QRBillDataBuilder(cdtr, new Money(12.00), "CHF", dbtr);
+		builder.reference("977598000000002414281387835");
+		QRBillData data = builder.build();
+		assertNotNull(data);
+
+		String qrData = data.toString();
+		assertTrue(StringUtils.isNotEmpty(qrData));
+		String[] parts = qrData.split("\r\n", -1);
+		assertEquals("S", parts[4]);
+		assertEquals("Postfach", parts[6]);
+		assertEquals("", parts[7]);
+		assertEquals("9400", parts[8]);
+		assertEquals("Rorschach", parts[9]);
 	}
 }

@@ -108,6 +108,8 @@ public class TardocOptifier implements IBillableOptifier<TardocLeistung> {
 
 		Result<IBilled> limitationsResult = verifier.checkLimitations(encounter, code, newBilled);
 		if (!limitationsResult.isOK()) {
+			// reset possible modifications
+			CoreModelServiceHolder.get().refresh(newBilled, true, true);
 			return limitationsResult;
 		}
 
@@ -353,8 +355,38 @@ public class TardocOptifier implements IBillableOptifier<TardocLeistung> {
 
 	@Override
 	public Result<IBilled> remove(IBilled billed, IEncounter encounter) {
-		// TODO Auto-generated method stub
-		return null;
+		List<IBilled> l = encounter.getBilled();
+		l.remove(billed);
+		deleteBilled(billed);
+		// if no more left, check for bezug and remove
+		List<IBilled> left = getVerrechnetMatchingCode(l, billed.getCode());
+		if (left.isEmpty()) {
+			List<IBilled> verrechnetWithBezug = getVerrechnetWithBezugMatchingCode(encounter.getBilled(),
+					billed.getCode());
+			for (IBilled verrechnet : verrechnetWithBezug) {
+				remove(verrechnet, encounter);
+			}
+		}
+		return new Result<IBilled>(billed);
+	}
+
+	private void deleteBilled(IBilled billed) {
+		if (!TarmedUtil.getConfigValue(getClass(), IUser.class, Preferences.LEISTUNGSCODES_ALLOWOVERRIDE_STRICT,
+				false)) {
+			CoreModelServiceHolder.get().delete(billed);
+		}
+	}
+
+	private List<IBilled> getVerrechnetWithBezugMatchingCode(List<IBilled> lst, String code) {
+		List<IBilled> ret = new ArrayList<IBilled>();
+		for (IBilled v : lst) {
+			if (v.getBillable() instanceof TardocLeistung) {
+				if (code.equals(v.getExtInfo("Bezug"))) { //$NON-NLS-1$
+					ret.add(v);
+				}
+			}
+		}
+		return ret;
 	}
 
 	@Override
@@ -365,8 +397,7 @@ public class TardocOptifier implements IBillableOptifier<TardocLeistung> {
 
 	private IBilled getOrInitializeBilled(TardocLeistung code, IEncounter kons, boolean save) {
 		IBilled ret = null;
-		// Ist der Hinzuzufügende Code vielleicht schon in der Liste? Dann
-		// nur Zahl erhöhen.
+		// if code already billed increment amount
 		for (IBilled billed : kons.getBilled()) {
 			if (isInstance(billed, code)) {
 				ret = billed;
